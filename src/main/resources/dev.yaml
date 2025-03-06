@@ -1,0 +1,7 @@
+http:
+  basePath: "/choice"
+  
+S3:
+  BucketName: "workerBucket"
+  S3.BuckeMessage: "updated successfully in "
+  

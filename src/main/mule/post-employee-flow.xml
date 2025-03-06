@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<flow name="post-employee-choicerouter-flow" doc:id="1e819803-baa0-4785-b7fe-1f3e1dbf718b" >
+		<logger level="INFO" doc:name="Logger" doc:id="749a697b-74c4-4d5e-8f14-58f0e4e1e18e" />
+		<choice doc:name="Choice" doc:id="66cfc823-e347-4308-b77a-416957a4a1e9" >
+			<when expression="#[payload.onboarded == false]">
+				<logger level="INFO" doc:name="Logger" doc:id="a4e4067e-9875-40c2-baae-a8076954fa51" />
+				<raise-error doc:name="Raise error" doc:id="64e7d41e-b546-4a73-8632-3403653b6dfc" type="ONBOARDED:EMPLOYEE_NOT_ONBOARDED" description="EMPLOYEE NOT ONBOARDED"/>
+			</when>
+			<when expression="#[!isEmpty(payload.onboarded)]">
+				<logger level="INFO" doc:name="Logger" doc:id="1cac7211-02ec-4278-ba63-2dbd36f2df32" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="c247cdf3-0d40-4cf8-b249-7fcfd41b84ad" />
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="post-employee-scattergather-flow" doc:id="80f7c101-a48b-45bf-9053-a838b8beb806" >
+		<logger level="INFO" doc:name="Logger" doc:id="d4f7e5f8-3529-4899-8ef7-6cd721433d73" message="Message Recieved to Post-emplyee-flow"/>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="6643f4d4-8cd4-4aab-8690-8a08cfb0db48" >
+			<route >
+				<logger level="INFO" doc:name="Logger" doc:id="97c54c5c-f0da-4739-bbc5-b66693e1369c" message="processing to Main Bucket"/>
+				<set-variable value='#[%dw 2.0&#10;output application/json   &#10;---&#10;payload.firstName ++ (payload.lastName  default "") ++ " data uploaded to MainBucket"]' doc:name="Set Variable" doc:id="77700ab4-d2e0-45ea-a90e-48f9de5698ce" variableName="MainBucket"/>
+				<logger level="INFO" doc:name="Logger" doc:id="ffa480cd-d1e7-4d32-91c1-d53813da4ec9" message="processed to Main Bucket"/>
+				<set-payload value="#[vars.MainBucket]" doc:name="Set Payload" doc:id="6a21aa76-8002-4f84-9414-936d6da79906" />
+			</route>
+			<route >
+				<logger level="INFO" doc:name="Logger" doc:id="59c64497-ee52-4ace-9375-3fbe59ab0949" message="processing to employee Bucket"/>
+				<set-variable value="#[%dw 2.0&#10;output application/json   &#10;---&#10;payload.phoneNumber]" doc:name="Set Variable" doc:id="4b956ce1-d8a5-4874-9cf2-4de136991ccb" variableName="phoneNumber"/>
+				<try doc:name="Try" doc:id="8461de00-8b83-40f1-95f3-7abb0f7b35fc" >
+					<set-variable value='#[%dw 2.0&#10;output application/json   &#10;---&#10;payload.firstName ++ (payload.lastName) ++ " data uploaded to EmployeeBucket"]' doc:name="Set Variable" doc:id="659655db-9d39-4451-b9e6-ab00a2b64140" variableName="employeeBucket" />
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="5a9deb5d-1b51-4f76-9d33-2d04f5f3827f" type="EXPRESSION">
+							<set-variable value="#[error.errorType]" doc:name="Set Variable" doc:id="23933263-f978-405e-ac91-fa0fdf0fa08f" variableName="errorStatus"/>
+						</on-error-continue>
+					</error-handler>
+				</try>
+				<logger level="INFO" doc:name="Logger" doc:id="b2a955bf-f76d-4b6b-874a-ecff8cff72f8" message="processed to Employee Bucket"/>
+				<set-payload value="#[vars.employeeBucket]" doc:name="Set Payload" doc:id="20b36246-b29c-4334-92a9-e086e5f73ccc" />
+			</route>
+			<route >
+				<logger level="INFO" doc:name="Logger" doc:id="ad09cc46-389d-43e4-85a0-624df918bcf4" message="processing to worker Bucket"/>
+				<set-variable value='#[%dw 2.0&#10;output application/json   &#10;---&#10;payload.firstName ++ (payload.lastName  default "") ++ " data uploaded to WorkerBucket"]' doc:name="Set Variable" doc:id="8678dbde-12f8-4589-a32f-a0b2da01ec2a" variableName="workerBucket"/>
+				<logger level="INFO" doc:name="Logger" doc:id="6548487a-4550-43f2-b4c0-b4ae2eeece2e" message="processed to worker Bucket"/>
+				<set-payload value="#[vars.workerBucket]" doc:name="Set Payload" doc:id="e6074f6c-2db1-43e5-b152-2acf59f6772f" />
+			</route>
+		</scatter-gather>
+		<set-payload value='#[payload]' doc:name="Set Payload" doc:id="cb9b5260-95df-49bf-8a61-3ee8339552c1" />
+	</flow>
+	<flow name="post-employee-foreach-flow" doc:id="467c1291-a1f1-4f74-b9e4-42c56f939213" >
+		<http:listener doc:name="Listener" doc:id="72707e63-0d02-4438-a923-4d88025c8311" path="${http.basePath}" config-ref="HTTP_Listener_config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="d12b1717-de6f-4d41-940c-d770fd7ffbbd" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; "CheckSize" : sizeOf(payload)&#10;}]'/>
+		<logger level="INFO" doc:name="Before For each" doc:id="86b18540-1477-4146-9c75-8e6bc8917f60" message="Before For each"/>
+		<foreach doc:name="For Each" doc:id="20c0c45e-0df0-46e3-9aff-2a2ed0825ef4" collection="#[payload]">
+			<set-payload value="#[payload.firstname ++ &quot; &quot; ++ payload.lastname ++ &quot; &quot;  ++   Mule::p('S3.BuckeMessage') ++ Mule::p('S3.BucketName')]" doc:name="Set Payload" doc:id="bd920dbe-ffef-4e08-9c5a-ea4bf93956fd" />
+			<logger level="INFO" doc:name="Logger" doc:id="b7b89314-9a40-480b-aae3-131ea22cc194" message="#[payload]"/>
+		</foreach>
+		<logger level="INFO" doc:name="after For each" doc:id="406f7569-d3f9-4f45-8160-21c3e0f5ccdf" message="after For each"/>
+		<set-payload value="#[payload]" doc:name="Set Payload" doc:id="27f16eee-1e2c-4696-9d8b-99f39f2faeae" />
+	</flow>
+	<flow name="post-employee-parallelforeach-flow" doc:id="d8089228-5055-4913-8e5c-0d4f521a975e" >
+		<http:listener doc:name="Listener" doc:id="c39df3c2-65e9-4c59-ab4d-d1a00816be1f" config-ref="HTTP_Listener_config" path="/parallel" />
+		<logger level="INFO" doc:name="Logger" doc:id="e554272c-d1d8-4547-9ad5-4e8a54e1ee7e" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; "CheckSize" : sizeOf(payload)&#10;}]' />
+		<logger level="INFO" doc:name="Before For each" doc:id="90b64749-3ae7-4ed0-9835-f82448ec4f8d" message="Before parallel For each" />
+		<parallel-foreach doc:name="Parallel For Each" doc:id="47691dde-9046-427c-9c52-eeb91f3435c5" >
+			<set-payload value="#[payload.firstname ++ &quot; &quot; ++ payload.lastname ++ &quot; &quot;  ++   Mule::p('S3.BuckeMessage') ++ Mule::p('S3.BucketName')]" doc:name="Set Payload" doc:id="149f14b5-e06b-433f-aea2-e056975ce866" />
+			<logger level="INFO" doc:name="Logger" doc:id="c585790b-d783-46f7-a3a7-4581a2b6f190" message="#[payload]" />
+		</parallel-foreach>
+		<logger level="INFO" doc:name="after For each" doc:id="a7c73320-d8ec-469c-a979-2fe8a2060691" message="after Parallel For each" />
+		<ee:transform doc:name="Transform Message" doc:id="4c96e6a6-d39d-49e3-92a5-66ed1c28e71e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="post-employee-targetVariable-flow" doc:id="1a0b4db9-0d98-4950-bf2c-153556991777" >
+		<http:listener doc:name="Listener" doc:id="ca6549f0-2516-4de6-b509-a9dfa65a88aa" config-ref="HTTP_Listener_config" path="/target" />
+		<logger level="INFO" doc:name="Logger" doc:id="cf97d44f-80cc-4f8c-9d0e-2be59f2b0d1b" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; "CheckSize" : sizeOf(payload)&#10;}]' />
+		<set-payload value='"Check the payload is not overwriting at subflows payload"' doc:name="Set Payload" doc:id="ab45b044-8fbe-4db5-b2ad-f357d32c98fa" />
+		<logger level="INFO" doc:name="Before sending to sub flow" doc:id="e408d4eb-40db-4be4-baff-dbe05dd5aca7" message="Before sending to sub flow" />
+		<flow-ref doc:name="Flow Reference" doc:id="1f837d49-a4a6-409b-9f3d-fad0af327da9" name="targetsublow" target="TargetSubflowPayload"/>
+		<logger level="INFO" doc:name="after sending to sub flow" doc:id="16a8a22b-ef1e-4e94-a38e-1bd0bb09a38c" message="after sending to sub flow" />
+	</flow>
+	<sub-flow name="targetsublow" doc:id="13a6cdbd-5d32-4ede-86e7-1ecc999f94d3" >
+		<ee:transform doc:name="Transform Message" doc:id="b268f385-833f-44ef-9411-7fe21306a49f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+"I might over write payload if I dont set as target variable in flow refernce level"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<flow name="post-employee-async-flow" doc:id="557166ea-a660-47cd-a64f-51ea5da3cc11" >
+		<http:listener doc:name="Listener" doc:id="da20938f-9163-4a6d-adf5-c9654282117a" config-ref="HTTP_Listener_config" path="/async" />
+		<logger level="INFO" doc:name="Logger" doc:id="c134b648-f156-491f-834b-e9c92b2d319b" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; "CheckSize" : sizeOf(payload)&#10;}]' />
+		<set-payload value='"Check the payload is not overwriting after Asymc scope"' doc:name="Set Payload" doc:id="9ca858ed-63ff-4901-be13-2a0bd34fb473" />
+		<logger level="INFO" doc:name="Before sending to  async scope" doc:id="bac97324-c94b-441a-ae58-3de6d89c2b33" message="Before sending to async scope" />
+		<async doc:name="Async" doc:id="22b425d0-f0f5-4188-b18c-3c3f65b3d974" >
+			<logger level="INFO" doc:name="message reached to Async block" doc:id="e0e93857-ce31-49c2-8760-069c9f88551a" message="message reached to Async block"/>
+			<logger level="INFO" doc:name="before external connectivity" doc:id="cf66b648-5d8b-41d3-a084-6d0bfe9f6f53" message="before external connectivity" />
+			<set-payload value="#[%dw 2.0&#10;output application/json&#10;---&#10;&quot;Assume I'm external connectivity and I'm doing some process&quot;]" doc:name="Set Payload" doc:id="e96acb8c-a5cd-4b94-baae-8d9d95a90331" />
+			<logger level="INFO" doc:name="printing payload" doc:id="9975c214-f0dd-476a-a47e-11dad130d1df" message="**********printpayload*****#[ payload]"/>
+		</async>
+		<logger level="INFO" doc:name="after sending to  async scope" doc:id="5e53b568-6228-414f-960e-efc7aebe22b3" message="after sending to async scope" />
+		<set-payload value='"Message is proccessing to S3 via Async scope"' doc:name="Set Payload" doc:id="ca4acc71-5929-4c59-8c2f-6363deb41591" />
+	</flow>
+</mule>
