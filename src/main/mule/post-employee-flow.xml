@@ -14,9 +14,11 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 			<when expression="#[payload.onboarded == false]">
 				<logger level="INFO" doc:name="Logger" doc:id="a4e4067e-9875-40c2-baae-a8076954fa51" />
 				<raise-error doc:name="Raise error" doc:id="64e7d41e-b546-4a73-8632-3403653b6dfc" type="ONBOARDED:EMPLOYEE_NOT_ONBOARDED" description="EMPLOYEE NOT ONBOARDED"/>
+				<logger level="INFO" doc:name="check if it reflects in git hub" doc:id="c1f24b69-aa9c-4420-ae32-e19d05278b95" message="check if it reflects in git hub"/>
 			</when>
 			<when expression="#[!isEmpty(payload.onboarded)]">
 				<logger level="INFO" doc:name="Logger" doc:id="1cac7211-02ec-4278-ba63-2dbd36f2df32" />
+				<logger level="INFO" doc:name="check if it reflects in git hub" doc:id="0806d4b7-02ed-4ef0-9192-3a10b2f82990" message="check if it reflects in git hub"/>
 			</when>
 			<otherwise >
 				<logger level="INFO" doc:name="Logger" doc:id="c247cdf3-0d40-4cf8-b249-7fcfd41b84ad" />
